@@ -174,6 +174,7 @@ gameTypeValue dd ?
 
 section '.rdata' data readable
 
+glowObjectManagerOffset dd 0x520DA28
 localPlayerOffset dd 0xCBD6B4
 crosshairIdOffset dd 0xB390
 forceAttackOffset dd 0x30FF2A0
