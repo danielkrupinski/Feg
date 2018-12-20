@@ -52,6 +52,12 @@ glow:
     test eax, eax
     jz glow
     mov eax, [clientBase]
+    add eax, [glowObjectManagerOffset]
+    lea ebx, [glowObjectManager]
+    invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+    cmp [glowObjectManager], 0
+    je glow
+    mov eax, [clientBase]
     add eax, 0x3F0064
     lea ebx, [gameTypeCvar]
     invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
@@ -171,6 +177,7 @@ entity dd ?
 entityTeam dd ?
 gameTypeCvar dd ?
 gameTypeValue dd ?
+glowObjectManager dd ?
 
 section '.rdata' data readable
 
