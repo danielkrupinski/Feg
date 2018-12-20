@@ -73,34 +73,134 @@ glow:
     mov ebx, [localPlayer]
     add ebx, [teamOffset]
     invoke NtReadVirtualMemory, dword [processHandle], ebx, eax, 4, NULL
-    mov eax, [crosshairID]
-    dec eax
+    jmp render1
+
+render:
+    xor eax, eax
+
+loop1:
+    inc eax
+    push eax
     mov ecx, 0x10
     mul ecx
     add eax, [clientBase]
     add eax, [entityListOffset]
     lea ebx, [entity]
     invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+
+    mov eax, [entity]
+    add eax, [glowIndexOffset]
+    lea ebx, [glowIndex]
+    invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+
+    mov eax, [glowIndex]
+    mov ecx, 0x38
+    mul ecx
+    mov [glowEntity], eax
+    add eax, [glowObjectManager]
+    add eax, 0x4
+    lea ebx, [red]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0x8
+    lea ebx, [blue]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0xC
+    lea ebx, [green]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0x24
+    lea ebx, [renderOccluded]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 1, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0x25
+    lea ebx, [renderUnoccluded]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 1, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0x26
+    lea ebx, [renderFullBloom]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 1, NULL
+
+    pop eax
+    cmp eax, 64
+    jle loop1
+    jmp glow
+
+render1:
+    xor eax, eax
+
+loop2:
+    inc eax
+    push eax
+    mov ecx, 0x10
+    mul ecx
+    add eax, [clientBase]
+    add eax, [entityListOffset]
+    lea ebx, [entity]
+    invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+
+    mov eax, [entity]
+    add eax, [glowIndexOffset]
+    lea ebx, [glowIndex]
+    invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+
     mov eax, [entity]
     add eax, [teamOffset]
     lea ebx, [entityTeam]
     invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
     mov eax, [entityTeam]
     cmp eax, [team]
-    je glow
+    je loop2
+
+    mov eax, [entity]
+    add eax, [glowIndexOffset]
+    lea ebx, [glowIndex]
+    invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+
+    mov eax, [glowIndex]
+    mov ecx, 0x38
+    mul ecx
+    mov [glowEntity], eax
+    add eax, [glowObjectManager]
+    add eax, 0x4
+    lea ebx, [red]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0x8
+    lea ebx, [blue]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0xC
+    lea ebx, [green]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0x24
+    lea ebx, [renderOccluded]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 1, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0x25
+    lea ebx, [renderUnoccluded]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 1, NULL
+    mov eax, [glowEntity]
+    add eax, [glowObjectManager]
+    add eax, 0x26
+    lea ebx, [renderFullBloom]
+    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 1, NULL
     
-render:
-    mov eax, [clientBase]
-    add eax, [forceAttackOffset]
-    lea ebx, [force1]
-    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
-    lea eax, [sleepDuration]
-    invoke NtDelayExecution, FALSE, eax
-    mov eax, [clientBase]
-    add eax, [forceAttackOffset]
-    lea ebx, [force2]
-    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
-    jmp triggerbot
+    pop eax
+    cmp eax, 64
+    jle loop1
+    jmp glow
 
 exit:
     invoke NtTerminateProcess, NULL, 0
@@ -119,7 +219,7 @@ proc findProcessId
     invoke Process32First, dword [eax], ebx
     cmp eax, 1
     jne exit
-    loop2:
+    loop3:
         lea eax, [snapshot]
         lea ebx, [processEntry]
         invoke Process32Next, dword [eax], ebx
@@ -128,7 +228,7 @@ proc findProcessId
         lea eax, [processEntry.szExeFile]
         cinvoke strcmp, <'csgo.exe', 0>, eax
         test eax, eax
-        jnz loop2
+        jnz loop3
 
     mov eax, [processEntry.th32ProcessID]
     ret
@@ -148,7 +248,7 @@ proc findModuleBase, processID
     invoke Module32First, dword [eax], ebx
     cmp eax, 1
     jne exit
-    loop3:
+    loop4:
         lea eax, [snapshot]
         lea ebx, [moduleEntry]
         invoke Module32Next, dword [eax], ebx
@@ -157,7 +257,7 @@ proc findModuleBase, processID
         lea eax, [moduleEntry.szModule]
         cinvoke strcmp, <'client_panorama.dll', 0>, eax
         test eax, eax
-        jnz loop3
+        jnz loop4
 
     mov eax, [moduleEntry.modBaseAddr]
     ret
@@ -178,17 +278,24 @@ entityTeam dd ?
 gameTypeCvar dd ?
 gameTypeValue dd ?
 glowObjectManager dd ?
+glowIndex dd ?
+glowEntity dd ?
 
 section '.rdata' data readable
 
 glowObjectManagerOffset dd 0x520DA28
+glowIndexOffset dd 0xA3F8
 localPlayerOffset dd 0xCBD6B4
 crosshairIdOffset dd 0xB390
 forceAttackOffset dd 0x30FF2A0
 teamOffset dd 0xF4
 entityListOffset dd 0x4CCDBFC
-force1 dd 5
-force2 dd 4
+red dd 0x437f0000
+green dd 0x00000000
+blue dd 0x00000000
+renderOccluded db 1
+renderUnoccluded db 0
+renderFullBloom db 0
 sleepDuration dq -1
 
 section '.idata' data readable import
