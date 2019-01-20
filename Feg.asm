@@ -1,4 +1,4 @@
-format PE GUI 6.0
+format PE console 6.0
 entry start
 
 include 'INCLUDE/win32ax.inc'
@@ -49,7 +49,7 @@ struct GLOW
         Color_g dd ?
         Color_b dd ?
         Color_a dd ?
-        Pad dw 16 dup (?)
+        Pad db 16 dup (?)
         Occluded db ?
         Unoccluded db ?
 ends
@@ -72,9 +72,9 @@ start:
 glow:
     lea eax, [sleepDuration]
     invoke NtDelayExecution, FALSE, eax
-    mov ebx, [clientBase]
-    add ebx, [localPlayerOffset]
-    lea eax, [localPlayer]
+    mov eax, [clientBase]
+    add eax, [localPlayerOffset]
+    lea ebx, [localPlayer]
     invoke NtReadVirtualMemory, [processHandle], eax, ebx, 4, NULL
     test eax, eax
     jnz exit
@@ -84,12 +84,11 @@ glow:
     invoke NtReadVirtualMemory, processHandle, eax, ebx, 4, NULL
     xor eax, eax
     loop1:
-        inc  eax
+        inc eax
         push eax
-
         mov ecx, 0x10
         mul ecx
-        mov eax, [clientBase]
+        add eax, [clientBase]
         add eax, [entityListOffset]
         lea ebx, [entity]
         invoke NtReadVirtualMemory, [processHandle], eax, ebx, 4, NULL
@@ -97,11 +96,28 @@ glow:
         add eax, [glowIndexOffset]
         lea ebx, [glowIndex]
         invoke NtReadVirtualMemory, [processHandle], eax, ebx, 4, NULL
-
-
-        pop  eax
-        cmp  eax, 64
+        mov eax, [glowIndex]
+        mov ecx, 0x38
+        mul ecx
+        add eax, [glowObjectManager]
+        lea ebx, [glowEntity]
+        invoke NtReadVirtualMemory, [processHandle], eax, ebx, sizeof.GLOW, NULL
+        mov [glowEntity.Color_r], 0x3f800000
+        mov [glowEntity.Color_g], 0x00000000
+        mov [glowEntity.Color_b], 0x00000000
+        mov [glowEntity.Color_a], 0x00000000
+        mov [glowEntity.Occluded], 1
+        mov [glowEntity.Unoccluded], 0
+        mov eax, [glowIndex]
+        mov ecx, 0x38
+        mul ecx
+        add eax, [glowObjectManager]
+        lea ebx, [glowEntity]
+        invoke NtWriteVirtualMemory, [processHandle], eax, ebx, sizeof.GLOW, NULL
+        pop eax
+        cmp eax, 64
         jb loop1
+    jmp glow
 
 exit:
     invoke NtTerminateProcess, NULL, 0
@@ -177,20 +193,14 @@ gameTypeCvar dd ?
 gameTypeValue dd ?
 glowObjectManager dd ?
 glowIndex dd ?
-glowEntity dd ?
+glowEntity GLOW ?
 
 section '.rdata' data readable
 
-glowObjectManagerOffset dd 0x520DA28
+glowObjectManagerOffset dd 0x520DA80
 glowIndexOffset dd 0xA3F8
-localPlayerOffset dd 0xCBD6B4
-crosshairIdOffset dd 0xB390
-forceAttackOffset dd 0x30FF2A0
-teamOffset dd 0xF4
-entityListOffset dd 0x4CCDBFC
-red dd 0x437f0000
-green dd 0x00000000
-blue dd 0x00000000
+localPlayerOffset dd 0xCBD6A4
+entityListOffset dd 0x4CCDC3C
 renderOccluded db 1
 renderUnoccluded db 0
 renderFullBloom db 0
@@ -210,7 +220,9 @@ import kernel32, \
        Process32Next, 'Process32Next'
 
 import msvcrt, \
-       strcmp, 'strcmp'
+       strcmp, 'strcmp', \
+       printf, 'printf', \
+       getchar, 'getchar'
 
 import ntdll, \
        NtDelayExecution, 'NtDelayExecution', \
