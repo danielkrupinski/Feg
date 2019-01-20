@@ -43,86 +43,65 @@ struct OBJECT_ATTRIBUTES
        SecurityQualityOfService    dd ?
 ends
 
+struct GLOW
+		EntityPointer dd ?
+        Color_r dd ?
+        Color_g dd ?
+        Color_b dd ?
+        Color_a dd ?
+        Pad dw 16 dup (?)
+        Occluded db ?
+        Unoccluded db ?
+ends
+
 section '.text' code executable
 
 start:
     stdcall findProcessId
-    mov [processId], eax
+    mov [clientId.UniqueProcess], eax
     stdcall findModuleBase, eax
     mov [clientBase], eax
-    invoke OpenProcess, PROCESS_VM_READ + PROCESS_VM_WRITE + PROCESS_VM_OPERATION, FALSE, [processId]
-    mov [processHandle], eax
+    mov [objectAttributes.Length], sizeof.OBJECT_ATTRIBUTES
+    lea eax, [processHandle]
+    lea ebx, [objectAttributes]
+    lea ecx, [clientId]
+    invoke NtOpenProcess, eax, PROCESS_VM_READ + PROCESS_VM_WRITE + PROCESS_VM_OPERATION, ebx, ecx
+    test eax, eax
+    jnz exit
 
 glow:
     lea eax, [sleepDuration]
     invoke NtDelayExecution, FALSE, eax
-    lea eax, [localPlayer]
     mov ebx, [clientBase]
     add ebx, [localPlayerOffset]
-    invoke NtReadVirtualMemory, dword [processHandle], ebx, eax, 4, NULL
+    lea eax, [localPlayer]
+    invoke NtReadVirtualMemory, [processHandle], eax, ebx, 4, NULL
     test eax, eax
     jnz exit
-    mov eax, [localPlayer]
-    test eax, eax
-    jz glow
     mov eax, [clientBase]
     add eax, [glowObjectManagerOffset]
     lea ebx, [glowObjectManager]
-    invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+    invoke NtReadVirtualMemory, processHandle, eax, ebx, 4, NULL
+    xor eax, eax
+    loop1:
+        inc  eax
+        push eax
 
-loop1:
-    inc eax
-    push eax
-    mov ecx, 0x10
-    mul ecx
-    add eax, [clientBase]
-    add eax, [entityListOffset]
-    lea ebx, [entity]
-    invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
+        mov ecx, 0x10
+        mul ecx
+        mov eax, [clientBase]
+        add eax, [entityListOffset]
+        lea ebx, [entity]
+        invoke NtReadVirtualMemory, [processHandle], eax, ebx, 4, NULL
+        mov eax, [entity]
+        add eax, [glowIndexOffset]
+        lea ebx, [glowIndex]
+        invoke NtReadVirtualMemory, [processHandle], eax, ebx, 4, NULL
 
-    mov eax, [entity]
-    add eax, [glowIndexOffset]
-    lea ebx, [glowIndex]
-    invoke NtReadVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
 
-    mov eax, [glowIndex]
-    mov ecx, 0x38
-    mul ecx
-    mov [glowEntity], eax
-    add eax, [glowObjectManager]
-    add eax, 0x4
-    lea ebx, [red]
-    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
-    mov eax, [glowEntity]
-    add eax, [glowObjectManager]
-    add eax, 0x8
-    lea ebx, [blue]
-    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
-    mov eax, [glowEntity]
-    add eax, [glowObjectManager]
-    add eax, 0xC
-    lea ebx, [green]
-    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 4, NULL
-    mov eax, [glowEntity]
-    add eax, [glowObjectManager]
-    add eax, 0x24
-    lea ebx, [renderOccluded]
-    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 1, NULL
-    mov eax, [glowEntity]
-    add eax, [glowObjectManager]
-    add eax, 0x25
-    lea ebx, [renderUnoccluded]
-    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 1, NULL
-    mov eax, [glowEntity]
-    add eax, [glowObjectManager]
-    add eax, 0x26
-    lea ebx, [renderFullBloom]
-    invoke NtWriteVirtualMemory, dword [processHandle], eax, ebx, 1, NULL
-
-    pop eax
-    cmp eax, 64
-    jle loop1
-    jmp glow
+        pop  eax
+        cmp  eax, 64
+        jb loop1
 
 exit:
     invoke NtTerminateProcess, NULL, 0
@@ -183,7 +162,8 @@ endp
 
 section '.bss' data readable writable
 
-processId dd ?
+clientId CLIENT_ID ?
+objectAttributes OBJECT_ATTRIBUTES ?
 processHandle dd ?
 clientBase dd ?
 localPlayer dd ?
@@ -238,4 +218,3 @@ import ntdll, \
        NtReadVirtualMemory, 'NtReadVirtualMemory', \
        NtTerminateProcess, 'NtTerminateProcess', \
        NtWriteVirtualMemory, 'NtWriteVirtualMemory'
-       
